@@ -19,7 +19,7 @@ function createWindow() {
             enableRemoteModule: true,
             webSecurity: false
         },
-        icon: path.join(__dirname, 'assets', 'icon.png'), // Optional: add icon
+        icon: path.join(__dirname, 'fmcv-sqaure.ico'), // Application icon
         title: 'Barcode Verification System',
         show: false // Don't show until ready
     });
