@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Packaging Barcode Verification System - Production</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Packaging Barcode Verification System</h1>
+        </header>
+
+        <!-- Production Mode -->
+        <div id="productionMode" class="mode-section active">
+            <div class="production-panel">
+                <h2 id="stationTitleDisplay">Production Station</h2>
+                
+                <div class="sku-selection">
+                    <label for="productionSku">Select Product SKU:</label>
+                    <select id="productionSku">
+                        <option value="">-- Select SKU --</option>
+                    </select>
+                </div>
+
+                <div id="scanningInterface" class="scanning-interface" style="display: none;">
+                    <div class="scan-progress">
+                        <h3>Scanning Progress</h3>
+                        <div id="progressDisplay"></div>
+                    </div>
+
+                    <div class="scan-input-section">
+                        <div class="current-scan">
+                            <label id="currentScanLabel">Ready to scan...</label>
+                            <input type="text" id="barcodeInput" placeholder="Scan barcode here..." autocomplete="off">
+                            <button id="submitScanBtn">Submit</button>
+                        </div>
+                        <div class="scan-actions">
+                            <button id="restartScanBtn">Restart Scan</button>
+                        </div>
+                    </div>
+
+                    <div id="scanResults" class="scan-results"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Status Messages -->
+        <div id="statusMessage" class="status-message"></div>
+    </div>
+
+    <script src="production.js"></script>
+</body>
+</html>

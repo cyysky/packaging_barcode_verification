@@ -28,9 +28,12 @@
     },
     "files": [
       "main.js",
-      "index.html",
+      "production.html",
+      "config.html",
+      "production.js",
+      "config.js",
       "styles.css",
-      "script.js",
+      "assets/**/*",
       "node_modules/**/*"
     ],
     "win": {

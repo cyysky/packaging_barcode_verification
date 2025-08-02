@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -24,8 +24,11 @@ function createWindow() {
         show: false // Don't show until ready
     });
 
-    // Load the index.html file
-    mainWindow.loadFile('index.html');
+    // Load the production.html file as default
+    mainWindow.loadFile('production.html');
+
+    // Create application menu
+    createMenu();
 
     // Show window when ready to prevent visual flash
     mainWindow.once('ready-to-show', () => {
@@ -57,6 +60,88 @@ function createWindow() {
     mainWindow.on('unmaximize', () => {
         mainWindow.webContents.send('window-restored');
     });
+}
+
+function createMenu() {
+    const template = [
+        {
+            label: 'File',
+            submenu: [
+                {
+                    label: 'Production Mode',
+                    accelerator: 'CmdOrCtrl+P',
+                    click: () => {
+                        mainWindow.loadFile('production.html');
+                    }
+                },
+                {
+                    label: 'Configuration',
+                    accelerator: 'CmdOrCtrl+Shift+C',
+                    click: () => {
+                        mainWindow.loadFile('config.html');
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Exit',
+                    accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
+                    click: () => {
+                        app.quit();
+                    }
+                }
+            ]
+        },
+        {
+            label: 'View',
+            submenu: [
+                { role: 'reload' },
+                { role: 'forceReload' },
+                { role: 'toggleDevTools' },
+                { type: 'separator' },
+                { role: 'resetZoom' },
+                { role: 'zoomIn' },
+                { role: 'zoomOut' },
+                { type: 'separator' },
+                { role: 'togglefullscreen' }
+            ]
+        },
+        {
+            label: 'Window',
+            submenu: [
+                { role: 'minimize' },
+                { role: 'close' }
+            ]
+        }
+    ];
+
+    if (process.platform === 'darwin') {
+        template.unshift({
+            label: app.getName(),
+            submenu: [
+                { role: 'about' },
+                { type: 'separator' },
+                { role: 'services' },
+                { type: 'separator' },
+                { role: 'hide' },
+                { role: 'hideOthers' },
+                { role: 'unhide' },
+                { type: 'separator' },
+                { role: 'quit' }
+            ]
+        });
+
+        // Window menu
+        template[3].submenu = [
+            { role: 'close' },
+            { role: 'minimize' },
+            { role: 'zoom' },
+            { type: 'separator' },
+            { role: 'front' }
+        ];
+    }
+
+    const menu = Menu.buildFromTemplate(template);
+    Menu.setApplicationMenu(menu);
 }
 
 // This method will be called when Electron has finished initialization
