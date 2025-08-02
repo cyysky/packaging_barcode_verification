@@ -375,3 +375,72 @@ ipcMain.handle('export-data', async (event, data, filename) => {
         return { success: false, error: error.message };
     }
 });
+
+// Handle configuration file upload (import from external location)
+ipcMain.handle('upload-config', async (event) => {
+    try {
+        const result = await dialog.showOpenDialog(mainWindow, {
+            title: 'Upload Configuration File',
+            filters: [
+                { name: 'JSON Files', extensions: ['json'] },
+                { name: 'All Files', extensions: ['*'] }
+            ],
+            properties: ['openFile']
+        });
+        
+        if (!result.canceled && result.filePaths.length > 0) {
+            const filePath = result.filePaths[0];
+            const data = await fs.promises.readFile(filePath, 'utf8');
+            
+            // Validate JSON format
+            try {
+                const configData = JSON.parse(data);
+                
+                // Basic validation of config structure
+                if (typeof configData !== 'object' || !configData.hasOwnProperty('skus')) {
+                    return { success: false, error: 'Invalid configuration file format' };
+                }
+                
+                return { success: true, data: configData, source: filePath };
+            } catch (parseError) {
+                return { success: false, error: 'Invalid JSON format in configuration file' };
+            }
+        }
+        
+        return { success: false, canceled: true };
+    } catch (error) {
+        console.error('Error uploading config:', error);
+        return { success: false, error: error.message };
+    }
+});
+
+// Handle configuration file download (export to external location)
+ipcMain.handle('download-config', async (event, configData) => {
+    try {
+        const result = await dialog.showSaveDialog(mainWindow, {
+            title: 'Download Configuration File',
+            defaultPath: 'barcode_verification_config.json',
+            filters: [
+                { name: 'JSON Files', extensions: ['json'] },
+                { name: 'All Files', extensions: ['*'] }
+            ]
+        });
+        
+        if (!result.canceled && result.filePath) {
+            // Add metadata to config before saving
+            const configWithMetadata = {
+                ...configData,
+                lastUpdated: new Date().toISOString(),
+                version: "1.0.0"
+            };
+            
+            await fs.promises.writeFile(result.filePath, JSON.stringify(configWithMetadata, null, 2), 'utf8');
+            return { success: true, path: result.filePath };
+        }
+        
+        return { success: false, canceled: true };
+    } catch (error) {
+        console.error('Error downloading config:', error);
+        return { success: false, error: error.message };
+    }
+});

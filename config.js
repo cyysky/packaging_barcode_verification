@@ -20,6 +20,8 @@ class ConfigurationSystem {
         document.getElementById('addBarcodeBtn').addEventListener('click', () => this.addBarcode());
         document.getElementById('saveConfigBtn').addEventListener('click', () => this.saveConfiguration());
         document.getElementById('loadConfigBtn').addEventListener('click', () => this.loadConfiguration());
+        document.getElementById('uploadConfigBtn').addEventListener('click', () => this.uploadConfiguration());
+        document.getElementById('downloadConfigBtn').addEventListener('click', () => this.downloadConfiguration());
 
         // Station title update
         document.getElementById('stationTitle').addEventListener('input', (e) => {
@@ -256,6 +258,70 @@ class ConfigurationSystem {
             };
             
             input.click();
+        }
+    }
+
+    async uploadConfiguration() {
+        if (this.isElectron) {
+            try {
+                const { ipcRenderer } = require('electron');
+                const result = await ipcRenderer.invoke('upload-config');
+                
+                if (result.success) {
+                    this.config = result.data;
+                    
+                    // Update UI
+                    document.getElementById('stationTitle').value = this.config.stationTitle || '';
+                    this.renderSkuList();
+                    this.selectedConfigSku = '';
+                    document.getElementById('barcodeConfig').style.display = 'none';
+                    
+                    this.showStatus(`Configuration uploaded successfully from: ${result.source}`, 'success');
+                } else if (result.canceled) {
+                    this.showStatus('Upload canceled', 'info');
+                } else {
+                    this.showStatus(`Error uploading configuration: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                this.showStatus(`Error uploading configuration: ${error.message}`, 'error');
+            }
+        } else {
+            // Fallback for web browser - same as loadConfiguration
+            this.loadConfiguration();
+        }
+    }
+
+    async downloadConfiguration() {
+        if (this.isElectron) {
+            try {
+                const { ipcRenderer } = require('electron');
+                const result = await ipcRenderer.invoke('download-config', this.config);
+                
+                if (result.success) {
+                    this.showStatus(`Configuration downloaded successfully to: ${result.path}`, 'success');
+                } else if (result.canceled) {
+                    this.showStatus('Download canceled', 'info');
+                } else {
+                    this.showStatus(`Error downloading configuration: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                this.showStatus(`Error downloading configuration: ${error.message}`, 'error');
+            }
+        } else {
+            // Fallback for web browser - same as saveConfiguration download
+            const configData = JSON.stringify(this.config, null, 2);
+            const blob = new Blob([configData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'barcode_verification_config.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showStatus('Configuration downloaded successfully', 'success');
         }
     }
 
