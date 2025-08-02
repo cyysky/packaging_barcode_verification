@@ -9,6 +9,7 @@ class BarcodeVerificationSystem {
         this.currentScanIndex = 0;
         this.scanResults = [];
         this.selectedConfigSku = '';
+        this.isElectron = typeof require !== 'undefined';
         
         this.initializeEventListeners();
         this.loadConfiguration();
@@ -199,36 +200,46 @@ class BarcodeVerificationSystem {
         }
     }
 
-    saveConfiguration() {
-        const configData = JSON.stringify(this.config, null, 2);
-        const blob = new Blob([configData], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'barcode_verification_config.json';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        this.showStatus('Configuration saved successfully', 'success');
+    async saveConfiguration() {
+        if (this.isElectron) {
+            try {
+                const { ipcRenderer } = require('electron');
+                const result = await ipcRenderer.invoke('save-config', this.config);
+                
+                if (result.success) {
+                    this.showStatus('Configuration saved successfully', 'success');
+                } else {
+                    this.showStatus(`Error saving configuration: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                this.showStatus(`Error saving configuration: ${error.message}`, 'error');
+            }
+        } else {
+            // Fallback for web browser
+            const configData = JSON.stringify(this.config, null, 2);
+            const blob = new Blob([configData], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = 'barcode_verification_config.json';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showStatus('Configuration saved successfully', 'success');
+        }
     }
 
-    loadConfiguration() {
-        const input = document.createElement('input');
-        input.type = 'file';
-        input.accept = '.json';
-        
-        input.onchange = (e) => {
-            const file = e.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const config = JSON.parse(e.target.result);
-                    this.config = config;
+    async loadConfiguration() {
+        if (this.isElectron) {
+            try {
+                const { ipcRenderer } = require('electron');
+                const result = await ipcRenderer.invoke('load-config');
+                
+                if (result.success) {
+                    this.config = result.data;
                     
                     // Update UI
                     document.getElementById('stationTitle').value = this.config.stationTitle || '';
@@ -237,15 +248,46 @@ class BarcodeVerificationSystem {
                     this.selectedConfigSku = '';
                     document.getElementById('barcodeConfig').style.display = 'none';
                     
-                    this.showStatus('Configuration loaded successfully', 'success');
-                } catch (error) {
-                    this.showStatus('Invalid configuration file', 'error');
+                    this.showStatus(`Configuration loaded successfully (${result.source})`, 'success');
+                } else {
+                    this.showStatus(`Error loading configuration: ${result.error}`, 'error');
                 }
+            } catch (error) {
+                this.showStatus(`Error loading configuration: ${error.message}`, 'error');
+            }
+        } else {
+            // Fallback for web browser
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    try {
+                        const config = JSON.parse(e.target.result);
+                        this.config = config;
+                        
+                        // Update UI
+                        document.getElementById('stationTitle').value = this.config.stationTitle || '';
+                        this.updateStationTitleDisplay();
+                        this.renderSkuList();
+                        this.selectedConfigSku = '';
+                        document.getElementById('barcodeConfig').style.display = 'none';
+                        
+                        this.showStatus('Configuration loaded successfully', 'success');
+                    } catch (error) {
+                        this.showStatus('Invalid configuration file', 'error');
+                    }
+                };
+                reader.readAsText(file);
             };
-            reader.readAsText(file);
-        };
-        
-        input.click();
+            
+            input.click();
+        }
     }
 
     updateStationTitleDisplay() {
@@ -391,17 +433,17 @@ class BarcodeVerificationSystem {
         resultsDiv.scrollTop = resultsDiv.scrollHeight;
     }
 
-    saveScanToCSV() {
+    async saveScanToCSV() {
         const now = new Date();
-        const dateStr = now.getFullYear() + '_' + 
-                       String(now.getMonth() + 1).padStart(2, '0') + '_' + 
+        const dateStr = now.getFullYear() + '_' +
+                       String(now.getMonth() + 1).padStart(2, '0') + '_' +
                        String(now.getDate()).padStart(2, '0');
         
-        const timeStr = String(now.getHours()).padStart(2, '0') + ':' + 
-                       String(now.getMinutes()).padStart(2, '0') + ':' + 
+        const timeStr = String(now.getHours()).padStart(2, '0') + ':' +
+                       String(now.getMinutes()).padStart(2, '0') + ':' +
                        String(now.getSeconds()).padStart(2, '0');
         
-        const csvData = [
+        const csvRow = [
             this.currentSku,
             dateStr,
             timeStr,
@@ -410,32 +452,69 @@ class BarcodeVerificationSystem {
         
         const filename = `${this.currentSku}_${dateStr}.csv`;
         
-        // Check if file exists in localStorage (simulating file system)
-        let existingData = localStorage.getItem(filename) || '';
-        
-        // Add header if file is new
-        if (!existingData) {
-            const barcodes = this.config.skus[this.currentSku].barcodes;
-            const header = ['SKU', 'Date', 'Time', ...barcodes.map(b => b.name)].join(',');
-            existingData = header + '\n';
+        if (this.isElectron) {
+            try {
+                const { ipcRenderer } = require('electron');
+                const path = require('path');
+                
+                // Create header if this is a new file
+                const barcodes = this.config.skus[this.currentSku].barcodes;
+                const header = ['SKU', 'Date', 'Time', ...barcodes.map(b => b.name)].join(',');
+                
+                // Get the exe directory path to check if file exists there
+                const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname;
+                const csvPath = path.join(exeDir, filename);
+                
+                // Check if file exists in exe directory
+                const fileExistsResult = await ipcRenderer.invoke('file-exists', csvPath);
+                
+                let csvData = '';
+                if (!fileExistsResult.success || !fileExistsResult.exists) {
+                    // New file, add header and row
+                    csvData = header + '\n' + csvRow + '\n';
+                } else {
+                    // File exists, just add the new row with newline
+                    csvData = csvRow + '\n';
+                }
+                
+                const result = await ipcRenderer.invoke('save-csv', filename, csvData);
+                
+                if (result.success) {
+                    this.showStatus(`Scan data saved to ${filename}`, 'success');
+                } else {
+                    this.showStatus(`Error saving CSV: ${result.error}`, 'error');
+                }
+            } catch (error) {
+                this.showStatus(`Error saving CSV: ${error.message}`, 'error');
+            }
+        } else {
+            // Fallback for web browser
+            let existingData = localStorage.getItem(filename) || '';
+            
+            // Add header if file is new
+            if (!existingData) {
+                const barcodes = this.config.skus[this.currentSku].barcodes;
+                const header = ['SKU', 'Date', 'Time', ...barcodes.map(b => b.name)].join(',');
+                existingData = header + '\n';
+            }
+            
+            existingData += csvRow + '\n';
+            localStorage.setItem(filename, existingData);
+            
+            // Also trigger download
+            const blob = new Blob([existingData], { type: 'text/csv' });
+            const url = URL.createObjectURL(blob);
+            
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            this.showStatus(`Scan data saved to ${filename}`, 'success');
         }
-        
-        existingData += csvData + '\n';
-        localStorage.setItem(filename, existingData);
-        
-        // Also trigger download
-        const blob = new Blob([existingData], { type: 'text/csv' });
-        const url = URL.createObjectURL(blob);
-        
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = filename;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-        
-        this.showStatus(`Scan data saved to ${filename}`, 'success');
     }
 
     focusInput() {
