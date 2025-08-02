@@ -461,12 +461,8 @@ class BarcodeVerificationSystem {
                 const barcodes = this.config.skus[this.currentSku].barcodes;
                 const header = ['SKU', 'Date', 'Time', ...barcodes.map(b => b.name)].join(',');
                 
-                // Get the exe directory path to check if file exists there
-                const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname;
-                const csvPath = path.join(exeDir, filename);
-                
                 // Check if file exists in exe directory
-                const fileExistsResult = await ipcRenderer.invoke('file-exists', csvPath);
+                const fileExistsResult = await ipcRenderer.invoke('file-exists', filename);
                 
                 let csvData = '';
                 if (!fileExistsResult.success || !fileExistsResult.exists) {

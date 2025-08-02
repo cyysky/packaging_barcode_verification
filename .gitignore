@@ -142,3 +142,4 @@ $RECYCLE.BIN/
 # Uncomment if these files contain sensitive data
 # *.csv
 # *_config.json
+/barcode_verification_config.json

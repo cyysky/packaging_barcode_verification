@@ -31,7 +31,6 @@
       "index.html",
       "styles.css",
       "script.js",
-      "barcode_verification_config.json",
       "node_modules/**/*"
     ],
     "win": {
@@ -61,7 +60,7 @@
     "extraResources": [
       {
         "from": "barcode_verification_config.json",
-        "to": "barcode_verification_config.json"
+        "to": "."
       }
     ]
   }

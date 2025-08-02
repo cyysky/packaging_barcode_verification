@@ -60,7 +60,9 @@ function createWindow() {
 }
 
 // This method will be called when Electron has finished initialization
-app.whenReady().then(createWindow);
+app.whenReady().then(async () => {
+    createWindow();
+});
 
 // Quit when all windows are closed
 app.on('window-all-closed', () => {
@@ -77,30 +79,38 @@ app.on('activate', () => {
 
 // File System API Handlers
 
-// Get application data directory
-function getAppDataPath() {
-    const userDataPath = app.getPath('userData');
-    const appDataDir = path.join(userDataPath, 'BarcodeVerification');
-    
-    // Ensure directory exists
-    if (!fs.existsSync(appDataDir)) {
-        fs.mkdirSync(appDataDir, { recursive: true });
-    }
-    
-    return appDataDir;
-}
+
 
 // Handle configuration file operations
 ipcMain.handle('save-config', async (event, configData) => {
     try {
         // Get the directory where the executable is located
-        const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname;
+        let exeDir;
+        if (app.isPackaged) {
+            // For packaged app, use the directory containing the executable
+            exeDir = path.dirname(process.execPath);
+        } else {
+            // For development, use the current directory
+            exeDir = __dirname;
+        }
+        
         const configPath = path.join(exeDir, 'barcode_verification_config.json');
         
+        console.log('Saving config to:', configPath);
+        console.log('App is packaged:', app.isPackaged);
+        console.log('Process execPath:', process.execPath);
+        console.log('Exe directory:', exeDir);
+        
         await fs.promises.writeFile(configPath, JSON.stringify(configData, null, 2), 'utf8');
+        console.log('Config saved successfully');
         return { success: true, path: configPath };
     } catch (error) {
         console.error('Error saving config:', error);
+        console.error('Error details:', {
+            code: error.code,
+            path: error.path,
+            syscall: error.syscall
+        });
         return { success: false, error: error.message };
     }
 });
@@ -108,31 +118,56 @@ ipcMain.handle('save-config', async (event, configData) => {
 ipcMain.handle('load-config', async (event) => {
     try {
         // Get the directory where the executable is located
-        const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname;
+        let exeDir;
+        if (app.isPackaged) {
+            // For packaged app, use the directory containing the executable
+            exeDir = path.dirname(process.execPath);
+        } else {
+            // For development, use the current directory
+            exeDir = __dirname;
+        }
+        
         const exeConfigPath = path.join(exeDir, 'barcode_verification_config.json');
+        
+        console.log('Loading config from:', exeConfigPath);
+        console.log('App is packaged:', app.isPackaged);
+        console.log('Exe directory:', exeDir);
         
         // Try to load from exe directory first
         if (fs.existsSync(exeConfigPath)) {
+            console.log('Config found in exe directory');
             const data = await fs.promises.readFile(exeConfigPath, 'utf8');
             return { success: true, data: JSON.parse(data), source: 'exe_directory' };
         }
         
-        // Try to load from project root (current directory)
-        const projectConfigPath = path.join(__dirname, 'barcode_verification_config.json');
-        if (fs.existsSync(projectConfigPath)) {
-            const data = await fs.promises.readFile(projectConfigPath, 'utf8');
-            return { success: true, data: JSON.parse(data), source: 'project_root' };
+        // Try to load from project root (current directory) - for development
+        if (!app.isPackaged) {
+            const projectConfigPath = path.join(__dirname, 'barcode_verification_config.json');
+            console.log('Checking project config path:', projectConfigPath);
+            if (fs.existsSync(projectConfigPath)) {
+                console.log('Config found in project root');
+                const data = await fs.promises.readFile(projectConfigPath, 'utf8');
+                return { success: true, data: JSON.parse(data), source: 'project_root' };
+            }
         }
         
-        // Fallback to app data directory
-        const appDataPath = getAppDataPath();
-        const appDataConfigPath = path.join(appDataPath, 'barcode_verification_config.json');
-        if (fs.existsSync(appDataConfigPath)) {
-            const data = await fs.promises.readFile(appDataConfigPath, 'utf8');
-            return { success: true, data: JSON.parse(data), source: 'appdata' };
-        }
+        // If no config found, create a default one in exe directory
+        console.log('No configuration file found, creating default');
+        const defaultConfig = {
+            "stationTitle": "",
+            "skus": {},
+            "lastUpdated": new Date().toISOString(),
+            "version": "1.0.0"
+        };
         
-        return { success: false, error: 'No configuration file found' };
+        try {
+            await fs.promises.writeFile(exeConfigPath, JSON.stringify(defaultConfig, null, 2), 'utf8');
+            console.log('Default config created at:', exeConfigPath);
+            return { success: true, data: defaultConfig, source: 'default_created' };
+        } catch (writeError) {
+            console.warn('Cannot write to exe directory:', writeError.message);
+            return { success: false, error: 'No configuration file found and cannot create default' };
+        }
     } catch (error) {
         console.error('Error loading config:', error);
         return { success: false, error: error.message };
@@ -143,7 +178,15 @@ ipcMain.handle('load-config', async (event) => {
 ipcMain.handle('save-csv', async (event, filename, csvData) => {
     try {
         // Get the directory where the executable is located
-        const exeDir = process.pkg ? path.dirname(process.execPath) : __dirname;
+        let exeDir;
+        if (app.isPackaged) {
+            // For packaged app, use the directory containing the executable
+            exeDir = path.dirname(process.execPath);
+        } else {
+            // For development, use the current directory
+            exeDir = __dirname;
+        }
+        
         const csvPath = path.join(exeDir, filename);
         
         // Check if file exists
@@ -164,67 +207,21 @@ ipcMain.handle('save-csv', async (event, filename, csvData) => {
     }
 });
 
-// Handle file dialog operations
-ipcMain.handle('show-save-dialog', async (event, options) => {
+
+// Check if file exists in exe directory
+ipcMain.handle('file-exists', async (event, filename) => {
     try {
-        const result = await dialog.showSaveDialog(mainWindow, {
-            title: options.title || 'Save File',
-            defaultPath: options.defaultPath || '',
-            filters: options.filters || [
-                { name: 'All Files', extensions: ['*'] }
-            ]
-        });
+        // Get the directory where the executable is located
+        let exeDir;
+        if (app.isPackaged) {
+            // For packaged app, use the directory containing the executable
+            exeDir = path.dirname(process.execPath);
+        } else {
+            // For development, use the current directory
+            exeDir = __dirname;
+        }
         
-        return result;
-    } catch (error) {
-        console.error('Error showing save dialog:', error);
-        return { canceled: true, error: error.message };
-    }
-});
-
-ipcMain.handle('show-open-dialog', async (event, options) => {
-    try {
-        const result = await dialog.showOpenDialog(mainWindow, {
-            title: options.title || 'Open File',
-            defaultPath: options.defaultPath || '',
-            filters: options.filters || [
-                { name: 'All Files', extensions: ['*'] }
-            ],
-            properties: options.properties || ['openFile']
-        });
-        
-        return result;
-    } catch (error) {
-        console.error('Error showing open dialog:', error);
-        return { canceled: true, error: error.message };
-    }
-});
-
-// Read file content
-ipcMain.handle('read-file', async (event, filePath) => {
-    try {
-        const data = await fs.promises.readFile(filePath, 'utf8');
-        return { success: true, data };
-    } catch (error) {
-        console.error('Error reading file:', error);
-        return { success: false, error: error.message };
-    }
-});
-
-// Write file content
-ipcMain.handle('write-file', async (event, filePath, content) => {
-    try {
-        await fs.promises.writeFile(filePath, content, 'utf8');
-        return { success: true };
-    } catch (error) {
-        console.error('Error writing file:', error);
-        return { success: false, error: error.message };
-    }
-});
-
-// Check if file exists
-ipcMain.handle('file-exists', async (event, filePath) => {
-    try {
+        const filePath = path.join(exeDir, filename);
         return { success: true, exists: fs.existsSync(filePath) };
     } catch (error) {
         console.error('Error checking file existence:', error);
