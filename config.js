@@ -63,20 +63,37 @@ class ConfigurationSystem {
         const skuList = document.getElementById('skuList');
         skuList.innerHTML = '';
         
-        Object.keys(this.config.skus).forEach(sku => {
+        const skuKeys = Object.keys(this.config.skus);
+        
+        skuKeys.forEach((sku, index) => {
             const skuItem = document.createElement('div');
             skuItem.className = 'sku-item';
+            skuItem.draggable = true;
+            skuItem.dataset.sku = sku;
+            skuItem.dataset.index = index;
+            
             if (sku === this.selectedConfigSku) {
                 skuItem.classList.add('selected');
             }
             
             skuItem.innerHTML = `
-                <span>${sku} (${this.config.skus[sku].barcodes.length} barcodes)</span>
+                <i class="fas fa-grip-vertical drag-handle"></i>
+                <div class="sku-name">
+                    <span class="editable-field" data-original-sku="${sku}" onclick="configSystem.editSkuName(this)">${sku}</span>
+                    <i class="fas fa-edit edit-icon" onclick="configSystem.editSkuName(this.previousElementSibling)"></i>
+                    <span class="barcode-count">(${this.config.skus[sku].barcodes.length} barcodes)</span>
+                </div>
                 <div class="item-actions">
                     <button onclick="configSystem.selectSkuForConfig('${sku}')">Configure</button>
                     <button class="delete-btn" onclick="configSystem.deleteSku('${sku}')">Delete</button>
                 </div>
             `;
+            
+            // Add drag and drop event listeners for SKUs
+            skuItem.addEventListener('dragstart', (e) => this.handleSkuDragStart(e));
+            skuItem.addEventListener('dragover', (e) => this.handleSkuDragOver(e));
+            skuItem.addEventListener('drop', (e) => this.handleSkuDrop(e));
+            skuItem.addEventListener('dragend', (e) => this.handleSkuDragEnd(e));
             
             skuList.appendChild(skuItem);
         });
@@ -157,16 +174,33 @@ class ConfigurationSystem {
         barcodes.forEach((barcode, index) => {
             const barcodeItem = document.createElement('div');
             barcodeItem.className = 'barcode-item';
+            barcodeItem.draggable = true;
+            barcodeItem.dataset.index = index;
             
             barcodeItem.innerHTML = `
+                <i class="fas fa-grip-vertical drag-handle"></i>
                 <div class="barcode-info">
-                    <div class="barcode-name">${index + 1}. ${barcode.name}</div>
-                    <div class="barcode-regex">Pattern: ${barcode.regex}</div>
+                    <div class="barcode-name">
+                        <span>${index + 1}. </span>
+                        <span class="editable-field" data-field="name" data-index="${index}" onclick="configSystem.editBarcodeField(this)">${barcode.name}</span>
+                        <i class="fas fa-edit edit-icon" onclick="configSystem.editBarcodeField(this.previousElementSibling)"></i>
+                    </div>
+                    <div class="barcode-regex">
+                        <span>Pattern: </span>
+                        <span class="editable-field" data-field="regex" data-index="${index}" onclick="configSystem.editBarcodeField(this)">${barcode.regex}</span>
+                        <i class="fas fa-edit edit-icon" onclick="configSystem.editBarcodeField(this.previousElementSibling)"></i>
+                    </div>
                 </div>
                 <div class="item-actions">
                     <button class="delete-btn" onclick="configSystem.deleteBarcode(${index})">Delete</button>
                 </div>
             `;
+            
+            // Add drag and drop event listeners
+            barcodeItem.addEventListener('dragstart', (e) => this.handleDragStart(e));
+            barcodeItem.addEventListener('dragover', (e) => this.handleDragOver(e));
+            barcodeItem.addEventListener('drop', (e) => this.handleDrop(e));
+            barcodeItem.addEventListener('dragend', (e) => this.handleDragEnd(e));
             
             barcodeList.appendChild(barcodeItem);
         });
@@ -346,6 +380,251 @@ class ConfigurationSystem {
             
             this.showStatus('Configuration downloaded successfully', 'success');
         }
+    }
+
+    // Inline editing methods
+    editSkuName(element) {
+        if (element.classList.contains('editing')) return;
+        
+        const originalSku = element.dataset.originalSku;
+        const currentText = element.textContent;
+        
+        element.classList.add('editing');
+        element.contentEditable = true;
+        element.focus();
+        
+        // Select all text
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        const finishEdit = () => {
+            element.classList.remove('editing');
+            element.contentEditable = false;
+            
+            const newSku = element.textContent.trim().toUpperCase();
+            
+            if (newSku === originalSku) return;
+            
+            if (!newSku) {
+                element.textContent = originalSku;
+                this.showStatus('SKU name cannot be empty', 'error');
+                return;
+            }
+            
+            if (this.config.skus[newSku]) {
+                element.textContent = originalSku;
+                this.showStatus('SKU already exists', 'error');
+                return;
+            }
+            
+            // Update the SKU in config
+            this.config.skus[newSku] = this.config.skus[originalSku];
+            delete this.config.skus[originalSku];
+            
+            // Update selected SKU if it was the one being edited
+            if (this.selectedConfigSku === originalSku) {
+                this.selectedConfigSku = newSku;
+                document.getElementById('selectedSkuTitle').textContent = newSku;
+            }
+            
+            element.dataset.originalSku = newSku;
+            this.renderSkuList();
+            this.showStatus('SKU name updated successfully', 'success');
+        };
+        
+        element.addEventListener('blur', finishEdit, { once: true });
+        element.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                element.blur();
+            } else if (e.key === 'Escape') {
+                element.textContent = originalSku;
+                element.blur();
+            }
+        }, { once: true });
+    }
+    
+    editBarcodeField(element) {
+        if (element.classList.contains('editing')) return;
+        
+        const field = element.dataset.field;
+        const index = parseInt(element.dataset.index);
+        const originalValue = element.textContent;
+        
+        element.classList.add('editing');
+        element.contentEditable = true;
+        element.focus();
+        
+        // Select all text
+        const range = document.createRange();
+        range.selectNodeContents(element);
+        const selection = window.getSelection();
+        selection.removeAllRanges();
+        selection.addRange(range);
+        
+        const finishEdit = () => {
+            element.classList.remove('editing');
+            element.contentEditable = false;
+            
+            const newValue = element.textContent.trim();
+            
+            if (newValue === originalValue) return;
+            
+            if (!newValue) {
+                element.textContent = originalValue;
+                this.showStatus(`${field === 'name' ? 'Barcode name' : 'Pattern'} cannot be empty`, 'error');
+                return;
+            }
+            
+            // Validate regex if editing pattern
+            if (field === 'regex') {
+                try {
+                    new RegExp(newValue);
+                } catch (e) {
+                    element.textContent = originalValue;
+                    this.showStatus('Invalid regex pattern', 'error');
+                    return;
+                }
+            }
+            
+            // Update the barcode in config
+            this.config.skus[this.selectedConfigSku].barcodes[index][field] = newValue;
+            this.showStatus(`Barcode ${field === 'name' ? 'name' : 'pattern'} updated successfully`, 'success');
+        };
+        
+        element.addEventListener('blur', finishEdit, { once: true });
+        element.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                element.blur();
+            } else if (e.key === 'Escape') {
+                element.textContent = originalValue;
+                element.blur();
+            }
+        }, { once: true });
+    }
+    
+    // Drag and drop methods
+    handleDragStart(e) {
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', e.target.outerHTML);
+        e.dataTransfer.setData('text/plain', e.target.dataset.index);
+    }
+    
+    handleDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        const draggingElement = document.querySelector('.dragging');
+        const currentElement = e.target.closest('.barcode-item');
+        
+        if (currentElement && currentElement !== draggingElement) {
+            currentElement.classList.add('drag-over');
+        }
+    }
+    
+    handleDrop(e) {
+        e.preventDefault();
+        
+        const draggingElement = document.querySelector('.dragging');
+        const currentElement = e.target.closest('.barcode-item');
+        
+        if (currentElement && currentElement !== draggingElement) {
+            const draggedIndex = parseInt(draggingElement.dataset.index);
+            const targetIndex = parseInt(currentElement.dataset.index);
+            
+            // Reorder the barcodes array
+            const barcodes = this.config.skus[this.selectedConfigSku].barcodes;
+            const draggedItem = barcodes.splice(draggedIndex, 1)[0];
+            barcodes.splice(targetIndex, 0, draggedItem);
+            
+            this.renderBarcodeList();
+            this.renderSkuList(); // Update barcode count
+            this.showStatus('Barcode order updated successfully', 'success');
+        }
+        
+        // Clean up drag over effects
+        document.querySelectorAll('.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
+        });
+    }
+    
+    handleDragEnd(e) {
+        e.target.classList.remove('dragging');
+        document.querySelectorAll('.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
+        });
+    }
+    
+    // SKU drag and drop methods
+    handleSkuDragStart(e) {
+        e.target.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/html', e.target.outerHTML);
+        e.dataTransfer.setData('text/plain', e.target.dataset.sku);
+    }
+    
+    handleSkuDragOver(e) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        const draggingElement = document.querySelector('.sku-item.dragging');
+        const currentElement = e.target.closest('.sku-item');
+        
+        if (currentElement && currentElement !== draggingElement) {
+            currentElement.classList.add('drag-over');
+        }
+    }
+    
+    handleSkuDrop(e) {
+        e.preventDefault();
+        
+        const draggingElement = document.querySelector('.sku-item.dragging');
+        const currentElement = e.target.closest('.sku-item');
+        
+        if (currentElement && currentElement !== draggingElement) {
+            const draggedSku = draggingElement.dataset.sku;
+            const targetSku = currentElement.dataset.sku;
+            
+            // Get current SKU order
+            const skuKeys = Object.keys(this.config.skus);
+            const draggedIndex = skuKeys.indexOf(draggedSku);
+            const targetIndex = skuKeys.indexOf(targetSku);
+            
+            // Reorder SKUs by creating a new config object with reordered keys
+            const newConfig = { ...this.config };
+            newConfig.skus = {};
+            
+            // Remove dragged SKU from its current position
+            skuKeys.splice(draggedIndex, 1);
+            // Insert it at the target position
+            skuKeys.splice(targetIndex, 0, draggedSku);
+            
+            // Rebuild the skus object in the new order
+            skuKeys.forEach(sku => {
+                newConfig.skus[sku] = this.config.skus[sku];
+            });
+            
+            this.config = newConfig;
+            this.renderSkuList();
+            this.showStatus('SKU order updated successfully', 'success');
+        }
+        
+        // Clean up drag over effects
+        document.querySelectorAll('.sku-item.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
+        });
+    }
+    
+    handleSkuDragEnd(e) {
+        e.target.classList.remove('dragging');
+        document.querySelectorAll('.sku-item.drag-over').forEach(el => {
+            el.classList.remove('drag-over');
+        });
     }
 
     showStatus(message, type) {

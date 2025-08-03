@@ -134,6 +134,15 @@ button:disabled {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    transition: all 0.3s ease;
+    cursor: move;
+    position: relative;
+}
+
+.sku-item:hover, .barcode-item:hover {
+    background: #d5dbdb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
 }
 
 .sku-item.selected {
@@ -141,14 +150,49 @@ button:disabled {
     border: 2px solid #3498db;
 }
 
+.sku-item.dragging, .barcode-item.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+.sku-item.drag-over, .barcode-item.drag-over {
+    border-top: 3px solid #3498db;
+}
+
 .barcode-item {
     flex-direction: column;
     align-items: flex-start;
+    cursor: move;
+    position: relative;
+}
+
+.barcode-item:hover {
+    background: #d5dbdb;
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.barcode-item.dragging {
+    opacity: 0.5;
+    transform: rotate(5deg);
+}
+
+.barcode-item.drag-over {
+    border-top: 3px solid #3498db;
 }
 
 .barcode-info {
     width: 100%;
     margin-bottom: 10px;
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.barcode-name, .barcode-regex {
+    display: flex;
+    align-items: center;
+    gap: 10px;
 }
 
 .barcode-name {
@@ -165,6 +209,82 @@ button:disabled {
 .item-actions {
     display: flex;
     gap: 10px;
+    align-self: flex-end;
+}
+
+/* Inline editing styles */
+.editable-field {
+    background: transparent;
+    border: 1px solid transparent;
+    padding: 2px 5px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-width: 100px;
+}
+
+.editable-field:hover {
+    background: #fff;
+    border-color: #ddd;
+}
+
+.editable-field.editing {
+    background: #fff;
+    border-color: #3498db;
+    cursor: text;
+    outline: none;
+}
+
+.edit-icon {
+    color: #666;
+    cursor: pointer;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    font-size: 12px;
+}
+
+.barcode-name:hover .edit-icon,
+.barcode-regex:hover .edit-icon,
+.sku-item:hover .edit-icon {
+    opacity: 1;
+}
+
+.edit-icon:hover {
+    color: #3498db;
+}
+
+/* Drag handle */
+.drag-handle {
+    position: absolute;
+    left: -10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: #666;
+    cursor: move;
+    opacity: 0;
+    transition: opacity 0.2s ease;
+    font-size: 16px;
+}
+
+.barcode-item:hover .drag-handle {
+    opacity: 1;
+}
+
+.drag-handle:hover {
+    color: #3498db;
+}
+
+/* SKU name editing */
+.sku-name {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.sku-name .editable-field {
+    font-weight: bold;
+    font-size: 16px;
 }
 
 .delete-btn {
