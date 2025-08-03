@@ -122,6 +122,10 @@ button:disabled {
     cursor: not-allowed;
 }
 
+#addSkuBtn {
+    margin-top: 8px;
+}
+
 .sku-list, .barcode-list {
     margin-top: 15px;
 }
