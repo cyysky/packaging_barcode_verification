@@ -273,21 +273,51 @@ ipcMain.handle('save-csv', async (event, filename, csvData) => {
         }
         
         const csvPath = path.join(exeDir, filename);
+        const csvDir = path.dirname(csvPath);
+        
+        console.log('CSV save operation:');
+        console.log('- Exe directory:', exeDir);
+        console.log('- Full CSV path:', csvPath);
+        console.log('- CSV directory:', csvDir);
+        console.log('- Directory exists:', fs.existsSync(csvDir));
+        
+        // Ensure directory exists - always create it
+        try {
+            await fs.promises.mkdir(csvDir, { recursive: true });
+            console.log('- Directory created/verified successfully');
+        } catch (mkdirError) {
+            console.error('- Error creating directory:', mkdirError);
+            // Continue anyway, maybe directory already exists
+        }
+        
+        // Double-check directory exists after creation
+        if (!fs.existsSync(csvDir)) {
+            throw new Error(`Failed to create directory: ${csvDir}`);
+        }
         
         // Check if file exists
         const fileExists = fs.existsSync(csvPath);
+        console.log('- File exists:', fileExists);
         
         if (fileExists) {
             // File exists, append with newline
             await fs.promises.appendFile(csvPath, csvData, 'utf8');
+            console.log('- Data appended to existing file');
         } else {
             // File doesn't exist, create new file
             await fs.promises.writeFile(csvPath, csvData, 'utf8');
+            console.log('- New file created');
         }
         
         return { success: true, path: csvPath };
     } catch (error) {
         console.error('Error saving CSV:', error);
+        console.error('Error details:', {
+            code: error.code,
+            path: error.path,
+            syscall: error.syscall,
+            errno: error.errno
+        });
         return { success: false, error: error.message };
     }
 });
@@ -307,6 +337,13 @@ ipcMain.handle('file-exists', async (event, filename) => {
         }
         
         const filePath = path.join(exeDir, filename);
+        
+        // Create directory if it doesn't exist (for subdirectory files)
+        const fileDir = path.dirname(filePath);
+        if (!fs.existsSync(fileDir)) {
+            await fs.promises.mkdir(fileDir, { recursive: true });
+        }
+        
         return { success: true, exists: fs.existsSync(filePath) };
     } catch (error) {
         console.error('Error checking file existence:', error);

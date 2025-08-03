@@ -217,7 +217,7 @@ class ProductionSystem {
             ...this.scanResults
         ].join(',');
         
-        const filename = `${this.currentSku}_${dateStr}.csv`;
+        const filename = `records/${this.currentSku}_${dateStr}.csv`;
         
         if (this.isElectron) {
             try {
