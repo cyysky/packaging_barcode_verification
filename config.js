@@ -91,15 +91,22 @@ class ConfigurationSystem {
     }
 
     deleteSku(sku) {
-        if (confirm(`Are you sure you want to delete SKU "${sku}"?`)) {
-            delete this.config.skus[sku];
-            if (this.selectedConfigSku === sku) {
-                this.selectedConfigSku = '';
-                document.getElementById('barcodeConfig').style.display = 'none';
+        this.showCustomConfirm(
+            `Are you sure you want to delete SKU "${sku}"?`,
+            () => {
+                delete this.config.skus[sku];
+                if (this.selectedConfigSku === sku) {
+                    this.selectedConfigSku = '';
+                    document.getElementById('barcodeConfig').style.display = 'none';
+                }
+                this.renderSkuList();
+                this.showStatus('SKU deleted successfully', 'success');
+                // Restore focus to the new SKU input after deletion
+                setTimeout(() => {
+                    document.getElementById('newSku').focus();
+                }, 100);
             }
-            this.renderSkuList();
-            this.showStatus('SKU deleted successfully', 'success');
-        }
+        );
     }
 
     addBarcode() {
@@ -166,12 +173,19 @@ class ConfigurationSystem {
     }
 
     deleteBarcode(index) {
-        if (confirm('Are you sure you want to delete this barcode configuration?')) {
-            this.config.skus[this.selectedConfigSku].barcodes.splice(index, 1);
-            this.renderBarcodeList();
-            this.renderSkuList(); // Update barcode count
-            this.showStatus('Barcode configuration deleted successfully', 'success');
-        }
+        this.showCustomConfirm(
+            'Are you sure you want to delete this barcode configuration?',
+            () => {
+                this.config.skus[this.selectedConfigSku].barcodes.splice(index, 1);
+                this.renderBarcodeList();
+                this.renderSkuList(); // Update barcode count
+                this.showStatus('Barcode configuration deleted successfully', 'success');
+                // Restore focus to the barcode name input after deletion
+                setTimeout(() => {
+                    document.getElementById('barcodeName').focus();
+                }, 100);
+            }
+        );
     }
 
     async saveConfiguration() {
@@ -343,6 +357,125 @@ class ConfigurationSystem {
         setTimeout(() => {
             statusDiv.style.display = 'none';
         }, 5000);
+    }
+
+    showCustomConfirm(message, onConfirm) {
+        // Create modal overlay
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.style.cssText = `
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        `;
+
+        // Create modal dialog
+        const modal = document.createElement('div');
+        modal.className = 'modal-dialog';
+        modal.style.cssText = `
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 400px;
+            width: 90%;
+            text-align: center;
+        `;
+
+        // Create message
+        const messageEl = document.createElement('p');
+        messageEl.textContent = message;
+        messageEl.style.cssText = `
+            margin: 0 0 20px 0;
+            font-size: 16px;
+            color: #333;
+        `;
+
+        // Create button container
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.cssText = `
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+        `;
+
+        // Create confirm button
+        const confirmBtn = document.createElement('button');
+        confirmBtn.textContent = 'Yes, Delete';
+        confirmBtn.className = 'delete-btn';
+        confirmBtn.style.cssText = `
+            padding: 8px 16px;
+            background: #dc3545;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+
+        // Create cancel button
+        const cancelBtn = document.createElement('button');
+        cancelBtn.textContent = 'Cancel';
+        cancelBtn.style.cssText = `
+            padding: 8px 16px;
+            background: #6c757d;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+        `;
+
+        // Add event listeners
+        confirmBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            onConfirm();
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            document.body.removeChild(overlay);
+            // Restore focus to the appropriate input field
+            setTimeout(() => {
+                const newSkuInput = document.getElementById('newSku');
+                if (newSkuInput) {
+                    newSkuInput.focus();
+                }
+            }, 100);
+        });
+
+        // Handle escape key
+        const handleEscape = (e) => {
+            if (e.key === 'Escape') {
+                document.body.removeChild(overlay);
+                document.removeEventListener('keydown', handleEscape);
+                // Restore focus to the appropriate input field
+                setTimeout(() => {
+                    const newSkuInput = document.getElementById('newSku');
+                    if (newSkuInput) {
+                        newSkuInput.focus();
+                    }
+                }, 100);
+            }
+        };
+        document.addEventListener('keydown', handleEscape);
+
+        // Assemble modal
+        buttonContainer.appendChild(cancelBtn);
+        buttonContainer.appendChild(confirmBtn);
+        modal.appendChild(messageEl);
+        modal.appendChild(buttonContainer);
+        overlay.appendChild(modal);
+
+        // Add to DOM and focus
+        document.body.appendChild(overlay);
+        cancelBtn.focus();
     }
 }
 
