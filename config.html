@@ -20,6 +20,12 @@
                     <label for="stationTitle">Station Title:</label>
                     <input type="text" id="stationTitle" placeholder="Enter station title">
                 </div>
+                
+                <div class="form-group">
+                    <label for="autoRestartSeconds">Auto-Restart After Success (seconds):</label>
+                    <input type="number" id="autoRestartSeconds" min="0" placeholder="0 = disabled" value="0">
+                    <small>Set to 0 to disable auto-restart. Any positive number will automatically restart scanning after successful completion.</small>
+                </div>
 
                 <h3>Product SKU Management</h3>
                 <div class="sku-section">

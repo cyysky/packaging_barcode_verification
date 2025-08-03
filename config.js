@@ -2,7 +2,8 @@ class ConfigurationSystem {
     constructor() {
         this.config = {
             stationTitle: '',
-            skus: {}
+            skus: {},
+            autoRestartSeconds: 0
         };
         this.selectedConfigSku = '';
         this.isElectron = typeof require !== 'undefined';
@@ -26,6 +27,11 @@ class ConfigurationSystem {
         // Station title update
         document.getElementById('stationTitle').addEventListener('input', (e) => {
             this.config.stationTitle = e.target.value;
+        });
+        
+        // Auto-restart seconds update
+        document.getElementById('autoRestartSeconds').addEventListener('input', (e) => {
+            this.config.autoRestartSeconds = parseInt(e.target.value) || 0;
         });
     }
 
@@ -213,6 +219,7 @@ class ConfigurationSystem {
                     
                     // Update UI
                     document.getElementById('stationTitle').value = this.config.stationTitle || '';
+                    document.getElementById('autoRestartSeconds').value = this.config.autoRestartSeconds || 0;
                     this.renderSkuList();
                     this.selectedConfigSku = '';
                     document.getElementById('barcodeConfig').style.display = 'none';
@@ -245,6 +252,7 @@ class ConfigurationSystem {
                         
                         // Update UI
                         document.getElementById('stationTitle').value = this.config.stationTitle || '';
+                        document.getElementById('autoRestartSeconds').value = this.config.autoRestartSeconds || 0;
                         this.renderSkuList();
                         this.selectedConfigSku = '';
                         document.getElementById('barcodeConfig').style.display = 'none';
@@ -272,6 +280,7 @@ class ConfigurationSystem {
                     
                     // Update UI
                     document.getElementById('stationTitle').value = this.config.stationTitle || '';
+                    document.getElementById('autoRestartSeconds').value = this.config.autoRestartSeconds || 0;
                     this.renderSkuList();
                     this.selectedConfigSku = '';
                     document.getElementById('barcodeConfig').style.display = 'none';

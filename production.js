@@ -2,12 +2,14 @@ class ProductionSystem {
     constructor() {
         this.config = {
             stationTitle: '',
-            skus: {}
+            skus: {},
+            autoRestartSeconds: 0
         };
         this.currentSku = '';
         this.currentScanIndex = 0;
         this.scanResults = [];
         this.isElectron = typeof require !== 'undefined';
+        this.autoRestartTimer = null;
         
         this.initializeEventListeners();
         this.loadConfiguration();
@@ -89,6 +91,12 @@ class ProductionSystem {
     }
 
     restartScan() {
+        // Clear any existing auto-restart timer
+        if (this.autoRestartTimer) {
+            clearTimeout(this.autoRestartTimer);
+            this.autoRestartTimer = null;
+        }
+        
         this.currentScanIndex = 0;
         this.scanResults = [];
         document.getElementById('barcodeInput').value = '';
@@ -178,6 +186,7 @@ class ProductionSystem {
                 // All scans complete
                 this.showScanResult('🎉 PASS - All barcodes verified successfully!', 'pass');
                 this.saveScanToCSV();
+                this.scheduleAutoRestart();
             }
             
             this.updateScanProgress();
@@ -276,6 +285,25 @@ class ProductionSystem {
             URL.revokeObjectURL(url);
             
             this.showStatus(`Scan data saved to ${filename}`, 'success');
+        }
+    }
+
+    scheduleAutoRestart() {
+        // Clear any existing timer first
+        if (this.autoRestartTimer) {
+            clearTimeout(this.autoRestartTimer);
+            this.autoRestartTimer = null;
+        }
+        
+        const autoRestartSeconds = this.config.autoRestartSeconds || 0;
+        
+        if (autoRestartSeconds > 0) {
+            this.showScanResult(`⏱️ Auto-restart in ${autoRestartSeconds} seconds...`, 'info');
+            
+            this.autoRestartTimer = setTimeout(() => {
+                this.showScanResult('🔄 Auto-restarting scan...', 'info');
+                this.restartScan();
+            }, autoRestartSeconds * 1000);
         }
     }
 

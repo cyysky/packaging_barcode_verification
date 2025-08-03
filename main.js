@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, dialog, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, dialog, Menu, shell } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const os = require('os');
@@ -62,6 +62,43 @@ function createWindow() {
     });
 }
 
+function openRecordsFolder() {
+    try {
+        // Get the directory where the executable is located
+        let exeDir;
+        if (app.isPackaged) {
+            // For packaged app, use the directory containing the executable
+            exeDir = path.dirname(process.execPath);
+        } else {
+            // For development, use the current directory
+            exeDir = __dirname;
+        }
+        
+        const recordsPath = path.join(exeDir, 'records');
+        
+        // Ensure the records directory exists
+        if (!fs.existsSync(recordsPath)) {
+            fs.mkdirSync(recordsPath, { recursive: true });
+            console.log('Records directory created:', recordsPath);
+        }
+        
+        // Open the records folder in the system's default file manager
+        shell.openPath(recordsPath).then((error) => {
+            if (error) {
+                console.error('Error opening records folder:', error);
+                // Show error dialog to user
+                dialog.showErrorBox('Error', `Could not open records folder: ${error}`);
+            } else {
+                console.log('Records folder opened successfully:', recordsPath);
+            }
+        });
+        
+    } catch (error) {
+        console.error('Error in openRecordsFolder:', error);
+        dialog.showErrorBox('Error', `Could not open records folder: ${error.message}`);
+    }
+}
+
 function createMenu() {
     const template = [
         {
@@ -79,6 +116,14 @@ function createMenu() {
                     accelerator: 'CmdOrCtrl+Shift+C',
                     click: () => {
                         mainWindow.loadFile('config.html');
+                    }
+                },
+                { type: 'separator' },
+                {
+                    label: 'Open Records Folder',
+                    accelerator: 'CmdOrCtrl+R',
+                    click: () => {
+                        openRecordsFolder();
                     }
                 },
                 { type: 'separator' },
