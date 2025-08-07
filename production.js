@@ -201,12 +201,30 @@ class ProductionSystem {
 
     showScanResult(message, type) {
         const resultsDiv = document.getElementById('scanResults');
+        
+        // Always show only the latest message: clear previous results
+        resultsDiv.innerHTML = '';
+        
         const resultMessage = document.createElement('div');
         resultMessage.className = `result-message ${type}`;
         resultMessage.textContent = message;
         
         resultsDiv.appendChild(resultMessage);
         resultsDiv.scrollTop = resultsDiv.scrollHeight;
+
+        // Add a brief attention-grabbing animation for failures
+        // Applies to type === 'error' only
+        if (type === 'error') {
+            // Use an animation class (defined in CSS) and remove it after animation ends
+            resultMessage.classList.remove('shake-error');
+            // Force reflow to restart animation if applied consecutively
+            // eslint-disable-next-line no-unused-expressions
+            resultMessage.offsetWidth;
+            resultMessage.classList.add('shake-error');
+            resultMessage.addEventListener('animationend', () => {
+                resultMessage.classList.remove('shake-error');
+            }, { once: true });
+        }
     }
 
     async saveScanToCSV() {
@@ -298,7 +316,7 @@ class ProductionSystem {
         const autoRestartSeconds = this.config.autoRestartSeconds || 0;
         
         if (autoRestartSeconds > 0) {
-            this.showScanResult(`⏱️ Auto-restart in ${autoRestartSeconds} seconds...`, 'info');
+            //this.showScanResult(`⏱️ Auto-restart in ${autoRestartSeconds} seconds...`, 'info');
             
             this.autoRestartTimer = setTimeout(() => {
                 this.showScanResult('🔄 Auto-restarting scan...', 'info');
