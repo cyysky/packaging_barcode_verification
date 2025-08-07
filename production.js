@@ -166,29 +166,38 @@ class ProductionSystem {
         }
         
         const barcodes = this.config.skus[this.currentSku].barcodes;
-        
+
+        // If previous cycle completed but user scans again, treat it as implicit restart
         if (this.currentScanIndex >= barcodes.length) {
-            this.showStatus('All barcodes already scanned. Click Restart to begin again.', 'info');
-            return;
+            // If there is a scanned value, restart and re-evaluate this same value against first barcode
+            this.restartScan();
         }
-        
+
         const currentBarcode = barcodes[this.currentScanIndex];
         const regex = new RegExp(currentBarcode.regex);
-        
+
         if (regex.test(scannedValue)) {
             // Valid scan
             this.scanResults.push(scannedValue);
             this.currentScanIndex++;
-            
+
             this.showScanResult(`✓ Valid ${currentBarcode.name}: ${scannedValue}`, 'success');
-            
+
             if (this.currentScanIndex >= barcodes.length) {
                 // All scans complete
                 this.showScanResult('🎉 PASS - All barcodes verified successfully!', 'pass');
                 this.saveScanToCSV();
-                this.scheduleAutoRestart();
+
+                // If autoRestartSeconds is configured, schedule it; otherwise restart immediately
+                const autoRestartSeconds = this.config.autoRestartSeconds || 0;
+                if (autoRestartSeconds > 0) {
+                    this.scheduleAutoRestart();
+                } else {
+                    // Immediate restart for uninterrupted flow
+                    this.restartScan();
+                }
             }
-            
+
             this.updateScanProgress();
         } else {
             // Invalid scan
